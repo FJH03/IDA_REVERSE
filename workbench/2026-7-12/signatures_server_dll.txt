@@ -25,7 +25,7 @@ MD5       : cd5bc8d252fcc917852a93916b3f8ca0
            m_task=FOLLOW(11), 然后 SetState(&m_followState)
   定位   : FollowState::GetName() 返回 "Follow" 字符串 → vtable → xref → 确认
   IDA    : 48 85 D2 0F 84 ? ? ? ? 48 89 5C 24 ? 57 48 83 EC 20 80 B9
-  x64    : \x48\x85\xD2\x0F\x84\x00\x00\x00\x00\x48\x89\x5C\x24\x00\x57\x48\x83\xEC\x20\x80\xB9
+  x64    : \x48\x85\xD2\x0F\x84\x2A\x2A\x2A\x2A\x48\x89\x5C\x24\x2A\x57\x48\x83\xEC\x20\x80\xB9
 
 
 1.2  CCSBot::ContinueFollowing  sub_180349160   (size 0x82)
@@ -44,7 +44,7 @@ MD5       : cd5bc8d252fcc917852a93916b3f8ca0
   定位   : 搜字节 C6 81 78 1E 00 00 (mov byte[rcx+0x1E78],0 = m_isFollowing=false)
            整 DLL 仅此一处, 对照源码三条赋值语句确认
   IDA    : C6 81 ? ? ? ? ? C7 81 ? ? ? ? ? ? ? ? 48 8B 05
-  x64    : \xC6\x81\x00\x00\x00\x00\x00\xC7\x81\x00\x00\x00\x00\x00\x00\x00\x00\x48\x8B\x05
+  x64    : \xC6\x81\x2A\x2A\x2A\x2A\x2A\xC7\x81\x2A\x2A\x2A\x2A\x2A\x2A\x2A\x2A\x48\x8B\x05
 
 
 1.4  CCSBot::SetState           sub_180349B80   (size 0xFC)
@@ -53,7 +53,7 @@ MD5       : cd5bc8d252fcc917852a93916b3f8ca0
   功能   : 唯一合法的状态切换入口; OnExit 旧状态 → OnEnter 新状态 → 更新 m_stateTimestamp
   定位   : 搜字符串 "%s: SetState: %s -> %s\n" 命中
   IDA    : 48 89 5C 24 ? 48 89 74 24 ? 57 48 83 EC 30 48 8B D9 48 8B FA
-  x64    : \x48\x89\x5C\x24\x00\x48\x89\x74\x24\x00\x57\x48\x83\xEC\x30\x48\x8B\xD9\x48\x8B\xFA
+  x64    : \x48\x89\x5C\x24\x2A\x48\x89\x74\x24\x2A\x57\x48\x83\xEC\x30\x48\x8B\xD9\x48\x8B\xFA
 
 
 1.5  CCSBot::Idle               sub_1803496F0   (size 0x20)
@@ -99,7 +99,7 @@ MD5       : cd5bc8d252fcc917852a93916b3f8ca0
            强制下次更新立即重算路径
   定位   : FollowState vtable[0] @ 0x180588E98 → 导出函数, 特征常量三板赋值
   IDA    : 48 89 5C 24 ? 57 48 83 EC 30 48 8B 02 48 8B F9 48 8B CA 0F 29 74 24
-  x64    : \x48\x89\x5C\x24\x00\x57\x48\x83\xEC\x30\x48\x8B\x02\x48\x8B\xF9\x48\x8B\xCA\x0F\x29\x74\x24
+  x64    : \x48\x89\x5C\x24\x2A\x57\x48\x83\xEC\x30\x48\x8B\x02\x48\x8B\xF9\x48\x8B\xCA\x0F\x29\x74\x24
 
 
 1.10 FollowState::OnUpdate      sub_1803603C0   (size 0x860)
@@ -131,6 +131,7 @@ MD5       : cd5bc8d252fcc917852a93916b3f8ca0
            → 反编译 CanPlayerHearPlayer → 发现它调用 sub_180126AC0
            → 反编译 sub_180126AC0 → 确认为 InSameTeam (null check + 双实体比较)
   IDA    : 40 57 48 83 EC 20 48 8B F9 48 85 D2 75
+  x64    : \x40\x57\x48\x83\xEC\x20\x48\x8B\xF9\x48\x85\xD2\x75
 
 
 2.2  CanPlayerHearPlayer        sub_1802F02A0   (size 0x4A)
@@ -142,6 +143,7 @@ MD5       : cd5bc8d252fcc917852a93916b3f8ca0
   定位   : 搜 "VoiceGameMgr" → IVoiceGameMgrHelper vtable @0x180570960
            → 在附近搜 call [rax+218h] 两次 → 命中
   IDA    : 48 89 5C 24 ? 57 48 83 EC 20 49 8B 00 49 8B C8
+  x64    : \x48\x89\x5C\x24\x2A\x57\x48\x83\xEC\x20\x49\x8B\x00\x49\x8B\xC8
 
 
 ================================================================================
