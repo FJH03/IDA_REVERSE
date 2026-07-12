@@ -1,0 +1,13 @@
+{
+  "servers": {
+    "ida-pro-mcp": {
+      "command": "uv",
+      "args": [
+        "run",
+        "--directory", "ida-pro-mcp",
+        "idalib-mcp",
+        "--stdio"
+      ]
+    }
+  }
+}
