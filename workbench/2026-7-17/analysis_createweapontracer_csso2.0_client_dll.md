@@ -367,6 +367,99 @@ while 循环:
 
 ---
 
+## Part 4 — 服务端完整调用链 & `vecSrc` 起源 (server.dll)
+
+> 目标：追踪 `vecSrc` 从武器开火到 `FireBullet` 的完整路径  
+> 二进制：`e:\ida_reverse\workbench\2026-7-17\server.dll` (session `898cb84a`)
+
+
+### 4.1 三层调用架构
+
+```
+CWeaponCSBase::PrimaryAttack   (sub_1803C4480 @ 0x1803C4480)
+CWeaponCSBase::SecondaryAttack (sub_1803C8CE0 @ 0x1803C8CE0)
+  │
+  ├─ v3 = GetOwner()                     → sub_18011A910
+  ├─ v24 = 枪口偏移                       → sub_18035E580(v3)
+  │       = player[+7536..7544] * convar
+  ├─ v25 = EyePosition()                  → vtable+1112(v3)
+  └─ vecSrc = v25 + v24   ★ 发射起点 = 眼睛位置 + 枪口偏移
+      │
+      ↓
+FX_FireBullets  (sub_180375140 @ 0x180375140)
+  │ 散布计算 / 后坐力 / 随机种子 / DevMsg 调试输出
+  │
+  ↓
+CCSPlayer::FireBullet  (sub_18035D240 @ 0x18035D240)
+  │ 弹道追踪 / 穿透 / 伤害 / 材质 / 音效
+  │
+  ├─ [SERVER ONLY] bullet_impact 事件
+  ├─ [SERVER ONLY] DelayedDamage → CTakeDamageInfo
+  ├─ [SERVER ONLY] CSoundEnt::InsertSound(SOUND_BULLET_IMPACT)
+  │
+  └─ HandleBulletPenetration → sub_18035F2B0
+```
+
+
+### 4.2 关键函数速查 (server.dll)
+
+| 函数              | 地址          | 源码映射                          |
+|-------------------|---------------|-----------------------------------|
+| `sub_1803C4480`   | `0x1803C4480` | `CWeaponCSBase::PrimaryAttack`    |
+| `sub_1803C8CE0`   | `0x1803C8CE0` | `CWeaponCSBase::SecondaryAttack`  |
+| `sub_18011A910`   | `0x18011A910` | `GetOwner()` / `GetPlayerOwner()` |
+| `sub_18035E580`   | `0x18035E580` | 枪口偏移计算 (`player[1884..1886] * convar`) |
+| `sub_180375140`   | `0x180375140` | `FX_FireBullets`                  |
+| `sub_18035D240`   | `0x18035D240` | `CCSPlayer::FireBullet`           |
+| `sub_18035F2B0`   | `0x18035F2B0` | `HandleBulletPenetration`         |
+| `sub_1803C71C0`   | `0x1803C71C0` | `IsA()` / `ClassMatch`            |
+
+### 4.3 `vecSrc` 的计算公式 (服务端)
+
+```cpp
+// PrimaryAttack / SecondaryAttack 中:
+float* muzzleOffset = sub_18035E580(player);  // player[1884..1886] * convar
+float* eyePos       = player->vtable[1112](); // EyePosition()
+vecSrc.x = eyePos.x + muzzleOffset.x;
+vecSrc.y = eyePos.y + muzzleOffset.y;
+vecSrc.z = eyePos.z + muzzleOffset.z;
+
+// 传入 FX_FireBullets(vecSrc, ...)
+//    → 传入 CCSPlayer::FireBullet(vecSrc, ...)
+//       → 弹道从 vecSrc 开始追踪
+```
+
+### 4.4 服务端 vs 客户端 FireBullet 对比
+
+| 特性                   | 服务端 (`sub_18035D240`)          | 客户端 (`sub_18029C390`)          |
+|------------------------|-----------------------------------|-----------------------------------|
+| 参数 `pevAttacker`     | ✅ 保留 (`a9`)                    | ❌ 优化掉 (默认=this)              |
+| `bullet_impact` 事件   | ✅ 发送 game event                | ❌ 无                              |
+| `DelayedDamage`        | ✅ 延迟伤害计算                   | ❌ 无                              |
+| `CSoundEnt`            | ✅ AI 音效                        | ❌ 无                              |
+| `CreateWeaponTracer`   | ❌ `#ifdef CLIENT_DLL` 排除       | ✅ vtable+CFG 间接调用             |
+| 穿透循环               | ✅ 完整 (伤害/穿透/材质)          | ✅ 简化版 (仅特效)                 |
+
+
+### 4.5 🔴 核心发现：曳光弹起点坐标来源不一致
+
+```
+服务端计算发射起点:
+  vecSrc = EyePosition() + player[1884..1886] * convar
+  
+客户端 CreateWeaponTracer 忽略此值，重新获取:
+  vecStart = GetAttachment("muzzle_flash") 或 GetAttachment("1")
+  
+→ 如果 GetAttachment 返回的坐标 ≠ EyePosition + offset，
+  曳光弹的起点就会与弹道起点不一致！
+```
+
+**验证方向：**
+1. 确认 `player[1884..1886]` 在源码中对应什么字段 (可能是 `m_vecViewOffset` 或武器偏移)
+2. 对比 `GetAttachment("muzzle_flash")` 与 `EyePosition + muzzleOffset` 的数值差异
+3. 检查 AUG/SG556 开镜时 ViewModel attachment "1" 与世界模型 "muzzle_flash" 的坐标差异
+
+
 ## 附录：工具排坑
 
 | 问题   | `decompile` 等工具返回 `"disabled by user"` |
